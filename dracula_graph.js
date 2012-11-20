@@ -233,6 +233,186 @@ Graph.Renderer.Raphael.prototype = {
 };
 Graph.Layout = {};
 
+/**
+ * Grid layout support.
+ * (c) 2012 Aries Tiger
+ * Jesse Chen @ Travelfusion.com
+ * added at 2012-11-19
+*/
+Graph.Layout.Grid = function(graph){
+    this.graph = graph;
+}
+
+Graph.Layout.Grid.prototype = {
+    layout: function(){
+        this.layoutPrepare();
+        this.calculateDepth();
+        //this.reverseDepth();
+        this.layoutVertically();
+        this.layoutHorizontally();
+
+        this.layoutCalculateBounds();
+    },
+    layoutPrepare: function() {
+        for (i in this.graph.nodelist) {
+            var node = this.graph.nodelist[i];
+            node.layoutPosX = 0;
+            node.layoutPosY = 0;
+            node.layoutForceX = 0;
+            node.layoutForceY = 0;
+        }
+    },
+
+    layoutCalculateBounds: function() {
+        var minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+
+        for (i in this.graph.nodes) {
+            var x = this.graph.nodes[i].layoutPosX;
+            var y = this.graph.nodes[i].layoutPosY;
+                      
+            if (x > maxx) maxx = x;
+            if (x < minx) minx = x;
+            if (y > maxy) maxy = y;
+            if (y < miny) miny = y;
+        }
+
+        this.graph.layoutMinX = minx;
+        this.graph.layoutMaxX = maxx;
+        this.graph.layoutMinY = miny;
+        this.graph.layoutMaxY = maxy;
+    },
+
+    calculateDepth: function(){
+        for(i in this.graph.nodelist){
+            var node = this.graph.nodelist[i];
+            node.calculateDepth(0)
+        }
+        for(i in this.graph.nodelist){
+            var node = this.graph.nodelist[i]
+            console.log(node.id + ": " + node.depth)
+        }
+    },
+
+    getMaxDepth: function(){
+        var depth = 0;
+        for(i in this.graph.nodelist){
+            var node = this.graph.nodelist[i];
+            if(depth < node.depth){
+                depth = node.depth;
+            }
+        }
+        return depth;
+    },
+
+    reverseDepth: function(){
+        var maxDepth = this.getMaxDepth() + 1;
+        for(i in this.graph.nodelist){
+            var node = this.graph.nodelist[i];
+            node.depth = (maxDepth - node.depth);
+        }
+    }, 
+
+    calculateDepthRecursive: function(node, nodeDepth){
+        var parents = this.getDependencyNodes(node);
+        for(i in this.graph.nodelist){
+            var targetNode = this.graph.nodelist[i];
+            for(j in parents){
+                var parent = parents[j];
+                if(parent.id == targetNode.id){
+                    if(targetNode.depth < nodeDepth + 1){
+                        targetNode.depth = nodeDepth + 1;
+                        this.calculateDepthRecursive(targetNode, targetNode.depth)
+                    }
+                }
+            }
+        }
+    },
+
+    getDependencyNodes: function(node){
+        var dependencyNodes = [];
+        for(i in this.graph.nodelist){
+            var targetNode = this.graph.nodelist[i];
+            for(j in node.edges){
+                var edge = node.edges[j];
+                if(targetNode.id == edge.target.id){
+                    dependencyNodes.push(targetNode);
+                    continue;
+                }
+            }
+        }
+        return dependencyNodes;
+    },
+
+    layoutVertically: function(){
+        var maxDepth = this.getMaxDepth();
+        console.log("max depth: " + maxDepth)
+        for(i in this.graph.nodelist){
+            var node = this.graph.nodelist[i];
+            node.layoutPosY = maxDepth - node.depth + 1;
+        }
+    }, 
+
+    layoutHorizontally: function(){
+        var levelsArr = this.splitByDepth();
+        var maxWidth = this.getMaxWidth();
+        for(var i = 0; i < levelsArr.length; i++){
+            var levelLength = levelsArr[i].length - 1;
+            for(var j = 0; j < levelsArr[i].length; j++){
+                var node = levelsArr[i][j];
+                if(j%2 == 0){
+                    node.layoutPosX = maxWidth + j;
+                }else{
+                    node.layoutPosX = j;    
+                }
+            }
+        }
+        
+    },
+
+    splitByDepth: function(){
+        var levelsArr = [];
+        var maxDepth = this.getMaxDepth();
+        for(var i = 1; i <= maxDepth; i++){
+            levelsArr.push(this.getNodesByDepth(i))
+        }
+        return levelsArr;
+    },
+
+    getLevelWidth: function(level){
+        var width = 0;
+        for(i in this.graph.nodelist){
+            var node = this.graph.nodelist[i];
+            if(node.depth == level){
+                width++;
+            }
+        }
+        return width;
+    },
+
+    getNodesByDepth: function(depth){
+        var nodes = [];
+        for(i in this.graph.nodelist){
+            var node = this.graph.nodelist[i];
+            if(node.depth == depth){
+                nodes.push(node);
+            }
+        }
+        return nodes;
+    },
+
+    getMaxWidth: function(){
+        var maxWidth = 0;
+        var levels = this.splitByDepth();
+        for(i in levels){
+            if(maxWidth < levels[i].length){
+                maxWidth = levels[i].length;
+            }
+        }
+        return maxWidth;
+    }
+
+}
+
 /*
  * Tree layout support.
  * (c) 2010 Grigory Kruglov
